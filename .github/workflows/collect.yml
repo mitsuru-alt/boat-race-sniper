@@ -25,6 +25,13 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - name: ダウンロード済みファイルの再利用
+        uses: actions/cache@v4
+        with:
+          path: .cache/lzh
+          key: lzh-${{ github.run_id }}
+          restore-keys: lzh-
+
       - name: 準備
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq p7zip-full
