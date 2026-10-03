@@ -41,13 +41,21 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq p7zip-full
           pip install -r pipeline/requirements.txt
 
-      - name: 一括取得（取得済みの日は飛ばす）
+      - name: 一括取得（60日ごとに保存・取得済みの日は飛ばす）
         env:
           DEBUG_SAMPLE: "1"
+          START: ${{ inputs.start }}
+          END: ${{ inputs.end }}
         run: |
-          ARGS="--start ${{ inputs.start }} --skip-existing --delay 1.0"
-          if [ -n "${{ inputs.end }}" ]; then ARGS="$ARGS --end ${{ inputs.end }}"; fi
-          python pipeline/collect.py $ARGS
+          [ -z "$END" ] && END=$(TZ=Asia/Tokyo date -d yesterday +%F)
+          cur="$START"
+          while [[ ! "$cur" > "$END" ]]; do
+            chunk_end=$(date -d "$cur +59 days" +%F)
+            [[ "$chunk_end" > "$END" ]] && chunk_end="$END"
+            python pipeline/collect.py --start "$cur" --end "$chunk_end" --skip-existing --delay 1.0 || true
+            bash pipeline/save.sh "data: 過去データ $cur 〜 $chunk_end" data/
+            cur=$(date -d "$chunk_end +1 day" +%F)
+          done
 
       - name: 学習
         if: ${{ inputs.train }}
@@ -55,4 +63,4 @@ jobs:
 
       - name: 保存
         run: |
-          bash pipeline/save.sh "data: 過去データ ${{ inputs.start }} 〜 ${{ inputs.end || '昨日' }}" data/ model/ reports/
+          bash pipeline/save.sh "model: 過去データで学習" data/ model/ reports/
