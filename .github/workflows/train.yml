@@ -1,0 +1,41 @@
+name: 週1の再学習
+
+on:
+  schedule:
+    # 毎週月曜 4:10（日本時間）= 日曜 19:10 UTC
+    - cron: "10 19 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-write
+  cancel-in-progress: false
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r pipeline/requirements.txt
+
+      - name: 学習と検証
+        run: python pipeline/analyze.py >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 保存
+        run: |
+          git config user.name "sniper-bot"
+          git config user.email "sniper-bot@users.noreply.github.com"
+          git add public/model/ reports/
+          git diff --cached --quiet && echo "変更なし" && exit 0
+          git commit -m "model: $(TZ=Asia/Tokyo date +%Y-%m-%d) 再学習"
+          git pull --rebase
+          git push

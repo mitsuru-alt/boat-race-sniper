@@ -1,0 +1,62 @@
+name: 過去データの一括取得
+
+# GitHub の Actions タブ →「過去データの一括取得」→ Run workflow で実行
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: "開始日（YYYY-MM-DD）"
+        required: true
+        default: "2024-10-01"
+      end:
+        description: "終了日（YYYY-MM-DD・空なら昨日まで）"
+        required: false
+        default: ""
+      train:
+        description: "取得後にそのまま学習する"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-write
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 準備
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq p7zip-full
+          pip install -r pipeline/requirements.txt
+
+      - name: 一括取得（取得済みの日は飛ばす）
+        run: |
+          ARGS="--start ${{ inputs.start }} --skip-existing --delay 1.0"
+          if [ -n "${{ inputs.end }}" ]; then ARGS="$ARGS --end ${{ inputs.end }}"; fi
+          python pipeline/collect.py $ARGS
+
+      - name: 学習
+        if: ${{ inputs.train }}
+        run: python pipeline/analyze.py >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 保存
+        run: |
+          git config user.name "sniper-bot"
+          git config user.email "sniper-bot@users.noreply.github.com"
+          git add data/ public/model/ reports/
+          git diff --cached --quiet && echo "変更なし" && exit 0
+          git commit -m "data: 過去データ ${{ inputs.start }} 〜 ${{ inputs.end || '昨日' }}"
+          git pull --rebase
+          git push
