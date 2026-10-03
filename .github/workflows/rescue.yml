@@ -1,0 +1,53 @@
+name: 公開中のアプリを回収
+
+# Vercel で動いている boat-race-sniper の画面ファイルを丸ごと取得して recovered/ に保存する
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "回収するサイト"
+        default: "https://boat-race-sniper.vercel.app/"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rescue
+  cancel-in-progress: false
+
+jobs:
+  rescue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 回収
+        env:
+          SITE: ${{ inputs.url }}
+        run: |
+          set -u
+          mkdir -p recovered
+          base="${SITE%/}"
+          curl -sSL --fail -A "Mozilla/5.0" "$base/" -o recovered/index.html
+          echo "::notice::index.html $(wc -c < recovered/index.html) bytes"
+          # 同じサイト内の JS / CSS / 画像 / manifest も回収
+          grep -oE '(src|href)="[^"#?]+' recovered/index.html | sed -E 's/^(src|href)="//' \
+            | grep -vE '^(https?:)?//|^data:|^mailto:' | sort -u > recovered/_assets.txt || true
+          while read -r p; do
+            [ -z "$p" ] && continue
+            rel="${p#/}"
+            mkdir -p "recovered/$(dirname "$rel")"
+            if curl -sSL --fail -A "Mozilla/5.0" "$base/$rel" -o "recovered/$rel"; then
+              echo "::notice::回収 $rel $(wc -c < "recovered/$rel") bytes"
+            else
+              echo "::warning::取得失敗 $rel"
+            fi
+          done < recovered/_assets.txt
+          # 画面から呼んでいる API のパスを一覧化（サーバー側のコードは公開されないので別途）
+          grep -ohE "/api/[A-Za-z0-9_./-]+" -r recovered | sort -u > recovered/_api_paths.txt || true
+          echo "::notice::API呼び出し: $(tr '\n' ' ' < recovered/_api_paths.txt)"
+
+      - name: 保存
+        run: |
+          bash pipeline/save.sh "rescue: 公開中のアプリを回収" recovered/
