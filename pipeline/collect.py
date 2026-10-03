@@ -45,6 +45,14 @@ COLUMNS = [
 ]
 
 log = logging.getLogger("collect")
+IN_ACTIONS = bool(__import__("os").environ.get("GITHUB_ACTIONS"))
+
+
+def annotate(level: str, msg: str) -> None:
+    """GitHub Actions の画面（とAPI）から見えるメッセージを出す。"""
+    if IN_ACTIONS:
+        enc = msg.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+        print(f"::{level}::{enc}", flush=True)
 
 
 # ----------------------------------------------------------------------
@@ -207,10 +215,16 @@ def collect_day(dl, day: date) -> dict:
     if b_files and not b_map:
         # 解析できなかった時は原因調査用に冒頭を出す
         sample = next(iter(b_files.values()))
-        log.warning("番組表の解析が0件: %s\n---\n%s\n---", day, "\n".join(sample.splitlines()[:40]))
+        head = "\n".join(sample.splitlines()[:40])
+        log.warning("番組表の解析が0件: %s\n---\n%s\n---", day, head)
+        annotate("warning", f"番組表の解析0件 {day}\n{head}")
     if k_files and not k_entries:
         sample = next(iter(k_files.values()))
-        log.warning("成績の解析が0件: %s\n---\n%s\n---", day, "\n".join(sample.splitlines()[:40]))
+        head = "\n".join(sample.splitlines()[:60])
+        log.warning("成績の解析が0件: %s\n---\n%s\n---", day, head)
+        annotate("warning", f"成績の解析0件 {day}\n{head}")
+    if not b_files and not k_files:
+        annotate("warning", f"{day} ファイルを取得できず（開催なし or 未公開 or 接続不可）")
 
     if not b_map and not k_entries:
         stats["written"] = 0
@@ -218,6 +232,14 @@ def collect_day(dl, day: date) -> dict:
     rows = build_rows(day, b_map, k_races, k_entries, k_tri)
     write_day(day, rows)
     stats["written"] = len(rows)
+    if __import__("os").environ.get("DEBUG_SAMPLE") and not getattr(collect_day, "_sampled", False):
+        collect_day._sampled = True
+        for kind, files in (("番組表", b_files), ("成績", k_files)):
+            if files:
+                text = next(iter(files.values()))
+                annotate("notice", f"{kind}サンプル {day}\n" + "\n".join(text.splitlines()[:45]))
+        complete = [r for r in rows if r["nat_win"] != "" and r["finish"] != ""][:6]
+        annotate("notice", "解析結果サンプル\n" + "\n".join(str(r) for r in complete))
     return stats
 
 
@@ -244,6 +266,7 @@ def main(argv=None) -> int:
 
     total = 0
     zero_parse_days = 0
+    summary: list[str] = []
     day = start
     while day <= end:
         path = DATA_DIR / f"{day.year}" / f"{day:%Y%m%d}.csv.gz"
@@ -254,9 +277,11 @@ def main(argv=None) -> int:
             st = collect_day(dl, day)
         except Exception as e:  # 1日の失敗で全体を止めない
             log.error("%s 失敗: %s", day, e)
+            annotate("error", f"{day} 失敗: {type(e).__name__}: {e}")
             day += timedelta(days=1)
             continue
         log.info("%(date)s 番組%(b_entries)4d 成績%(k_entries)4d 3連単%(trifecta)3d → %(written)d行", st)
+        summary.append("{date} 番組{b_entries} 成績{k_entries} 3連単{trifecta} → {written}行".format(**st))
         total += st["written"]
         if st["written"] and (st["b_entries"] == 0 or st["k_entries"] == 0):
             zero_parse_days += 1
@@ -264,6 +289,7 @@ def main(argv=None) -> int:
         time.sleep(args.delay)
 
     log.info("合計 %d 行", total)
+    annotate("notice", f"収集 {start}〜{end}: 合計 {total:,} 行（片方しか読めなかった日 {zero_parse_days}）\n" + "\n".join(summary[-10:]))
     if total == 0:
         log.error("1行も取得できませんでした。ログを確認してください。")
         return 1

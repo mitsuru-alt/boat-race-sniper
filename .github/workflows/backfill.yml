@@ -42,6 +42,8 @@ jobs:
           pip install -r pipeline/requirements.txt
 
       - name: 一括取得（取得済みの日は飛ばす）
+        env:
+          DEBUG_SAMPLE: "1"
         run: |
           ARGS="--start ${{ inputs.start }} --skip-existing --delay 1.0"
           if [ -n "${{ inputs.end }}" ]; then ARGS="$ARGS --end ${{ inputs.end }}"; fi
@@ -53,10 +55,4 @@ jobs:
 
       - name: 保存
         run: |
-          git config user.name "sniper-bot"
-          git config user.email "sniper-bot@users.noreply.github.com"
-          git add data/ public/model/ reports/
-          git diff --cached --quiet && echo "変更なし" && exit 0
-          git commit -m "data: 過去データ ${{ inputs.start }} 〜 ${{ inputs.end || '昨日' }}"
-          git pull --rebase
-          git push
+          bash pipeline/save.sh "data: 過去データ ${{ inputs.start }} 〜 ${{ inputs.end || '昨日' }}" data/ public/model/ reports/

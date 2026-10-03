@@ -32,10 +32,4 @@ jobs:
 
       - name: 保存
         run: |
-          git config user.name "sniper-bot"
-          git config user.email "sniper-bot@users.noreply.github.com"
-          git add public/model/ reports/
-          git diff --cached --quiet && echo "変更なし" && exit 0
-          git commit -m "model: $(TZ=Asia/Tokyo date +%Y-%m-%d) 再学習"
-          git pull --rebase
-          git push
+          bash pipeline/save.sh "model: $(TZ=Asia/Tokyo date +%Y-%m-%d) 再学習" public/model/ reports/
