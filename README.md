@@ -11,7 +11,7 @@
 | 手動 | 過去データを一括取得（初回に1回） | `.github/workflows/backfill.yml` |
 
 - データ: `data/entries/年/YYYYMMDD.csv.gz`（1行 = 1レースの1艇）
-- 学習結果: `public/model/weights.json`、選手の平均ST: `public/model/racer_st.json`
+- 学習結果: `model/weights.json`、選手の平均ST: `model/racer_st.json`
 - 成績レポート: `reports/latest.md`、推移: `reports/history.csv`
 
 データ元は BOAT RACE オフィシャルウェブサイトの「ダウンロード」で配布されている番組表（B）と競走成績（K）。

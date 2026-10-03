@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BOAT RACE SNIPER - 大穴予想ツール</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --card: #14141f;
+      --card-border: rgba(255,255,255,0.06);
+      --accent: #d91a26;
+      --accent-glow: rgba(217,26,38,0.4);
+      --neon-cyan: #00e5ff;
+      --neon-pink: #ff2d7b;
+      --neon-gold: #ffd700;
+      --text: #f0f0f0;
+      --text-dim: #777;
+      --text-muted: rgba(255,255,255,0.4);
+      --input-bg: rgba(255,255,255,0.07);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      padding: 16px;
+      padding-bottom: 80px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ===== Header ===== */
+    .header {
+      text-align: center;
+      padding: 16px 0 24px;
+    }
+    .header-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .header-logo svg { width: 32px; height: 32px; }
+    .header-logo h1 {
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      background: linear-gradient(135deg, #fff 40%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header-sub {
+      font-size: 13px;
+      color: var(--neon-cyan);
+      margin-top: 6px;
+      letter-spacing: 4px;
+      text-shadow: 0 0 10px rgba(0,229,255,0.3);
+    }
+    .header-line {
+      height: 2px;
+      margin: 14px 40px 0;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+
+    /* ===== Card ===== */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    /* ===== Section Header ===== */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .section-header svg { width: 18px; height: 18px; color: var(--accent); }
+    .section-header span {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    /* ===== Wind Direction ===== */
+    .label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    .wind-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .wind-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      padding: 12px 4px;
+      background: var(--input-bg);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      color: var(--text-dim);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .wind-btn svg { width: 20px; height: 20px; transition: color 0.2s; }
+    .wind-btn.active {
+      background: rgba(217,26,38,0.15);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 12px rgba(217,26,38,0.2);
+    }
+
+    /* ===== Slider ===== */
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .slider-value {
+      font-size: 22px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      font-family: 'SF Mono', 'Menlo', monospace;
+      transition: color 0.3s;
+    }
+    .speed-green { color: #34c759; }
+    .speed-yellow { color: #ffd60a; }
+    .speed-red { color: var(--accent); text-shadow: 0 0 8px var(--accent-glow); }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.1);
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 14px var(--accent-glow);
+    }
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 6px;
+    }
+
+    /* ===== Racer Card ===== */
+    .racer-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 10px;
+      transition: border-color 0.2s;
+    }
+    .racer-card:focus-within {
+      border-color: rgba(255,255,255,0.15);
+    }
+    .lane-badge {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 900;
+      flex-shrink: 0;
+      font-family: 'SF Mono', 'Menlo', monospace;
+    }
+    .lane-1 { background: #fff; color: #000; }
+    .lane-2 { background: #1a1a1a; color: #fff; border: 2px solid #555; }
+    .lane-3 { background: #d91a26; color: #fff; }
+    .lane-4 { background: #0066ff; color: #fff; }
+    .lane-5 { background: #f5c518; color: #000; }
+    .lane-6 { background: #1b9e3e; color: #fff; }
+
+    .racer-info { flex: 1; min-width: 0; }
+    .racer-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+    .racer-fields {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+    .field-group { display: flex; flex-direction: column; gap: 4px; }
+    .field-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Custom Select */
+    .custom-select {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--input-bg);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: border-color 0.2s;
+    }
+    .custom-select:focus-within { border-color: var(--accent); }
+    .class-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .class-dot.a1 { background: #d91a26; box-shadow: 0 0 6px rgba(217,26,38,0.5); }
+    .class-dot.a2 { background: #ff9500; box-shadow: 0 0 6px rgba(255,149,0,0.5); }
+    .class-dot.b1 { background: #0066ff; box-shadow: 0 0 6px rgba(0,102,255,0.5); }
+    .class-dot.b2 { background: #666; }
+    .select-text {
+      font-size: 15px;
+      font-weight: 700;
+      font-family: 'SF Mono', 'Menlo', monospace;
+      color: var(--text);
+    }
+    .select-arrow {
+      font-size: 8px;
+      color: var(--text-dim);
+      line-height: 1;
+    }
+    .custom-select select {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    /* Motor Input */
+    .motor-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .motor-input {
+      width: 80px;
+      padding: 8px 12px;
+      background: var(--input-bg);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 700;
+      font-family: 'SF Mono', 'Menlo', monospace;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .motor-input:focus { border-color: var(--accent); }
+    .motor-input::placeholder { color: var(--text-muted); font-weight: 400; }
+    .motor-unit {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+
+    /* ===== Submit Button ===== */
+    .submit-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 18px;
+      margin-top: 12px;
+      background: linear-gradient(135deg, var(--accent), #a01018);
+      border: none;
+      border-radius: 16px;
+      color: #fff;
+      font-size: 18px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 6px 30px var(--accent-glow);
+      transition: transform 0.15s, box-shadow 0.15s;
+      -webkit-tap-highlight-color: transparent;
+      letter-spacing: 1px;
+    }
+    .submit-btn:active {
+      transform: scale(0.97);
+      box-shadow: 0 2px 14px var(--accent-glow);
+    }
+    .submit-btn svg { width: 22px; height: 22px; }
+
+    /* ===== Result Area ===== */
+    .result-area {
+      margin-top: 20px;
+      overflow: hidden;
+      transition: max-height 0.5s ease, opacity 0.5s ease;
+      max-height: 0;
+      opacity: 0;
+    }
+    .result-area.show {
+      max-height: 600px;
+      opacity: 1;
+    }
+    .result-card {
+      background: linear-gradient(135deg, #1a0a0e, #14141f);
+      border: 1px solid var(--accent);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .result-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 0%, rgba(217,26,38,0.15), transparent 70%);
+      pointer-events: none;
+    }
+    .result-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--neon-cyan);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      text-shadow: 0 0 10px rgba(0,229,255,0.3);
+    }
+    .result-main {
+      margin-bottom: 20px;
+    }
+    .result-label {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .result-value {
+      font-size: 48px;
+      font-weight: 900;
+      color: var(--accent);
+      font-family: 'SF Mono', 'Menlo', monospace;
+      text-shadow: 0 0 20px var(--accent-glow), 0 0 40px rgba(217,26,38,0.2);
+      line-height: 1.1;
+    }
+    .result-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      margin: 20px 0;
+    }
+    .result-picks {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .pick-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .pick-label {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+    .pick-value {
+      font-size: 20px;
+      font-weight: 900;
+      font-family: 'SF Mono', 'Menlo', monospace;
+    }
+    .pick-value.hot {
+      color: var(--accent);
+      text-shadow: 0 0 8px var(--accent-glow);
+    }
+    .pick-value.warm {
+      color: var(--neon-gold);
+      text-shadow: 0 0 8px rgba(255,215,0,0.3);
+    }
+    .pick-value.cool {
+      color: var(--neon-cyan);
+      text-shadow: 0 0 8px rgba(0,229,255,0.3);
+    }
+    .pick-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .badge-danger { background: rgba(217,26,38,0.2); color: var(--accent); }
+    .badge-warning { background: rgba(255,215,0,0.15); color: var(--neon-gold); }
+    .badge-info { background: rgba(0,229,255,0.15); color: var(--neon-cyan); }
+
+    .result-note {
+      margin-top: 16px;
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      white-space: pre-line;
+    }
+
+    /* ===== Loading animation ===== */
+    @keyframes scan {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .scanning .result-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(217,26,38,0.1), transparent);
+      animation: scan 1.5s ease-in-out;
+      pointer-events: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .loading-text {
+      color: var(--accent);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    /* ===== Auto Load Button ===== */
+    .auto-load-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      margin-top: 12px;
+      padding: 14px;
+      background: transparent;
+      border: 2px solid var(--neon-cyan);
+      border-radius: 12px;
+      color: var(--neon-cyan);
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.2s;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 0 12px rgba(0,229,255,0.1);
+    }
+    .auto-load-btn:hover {
+      background: rgba(0,229,255,0.08);
+      box-shadow: 0 0 20px rgba(0,229,255,0.2);
+    }
+    .auto-load-btn:active { transform: scale(0.97); }
+    .auto-load-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .auto-load-btn svg { width: 18px; height: 18px; }
+    .auto-load-btn.success {
+      border-color: #34c759;
+      color: #34c759;
+      box-shadow: 0 0 16px rgba(52,199,89,0.2);
+    }
+    .auto-load-btn.error {
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 16px rgba(217,26,38,0.2);
+    }
+
+    /* ===== Toast ===== */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #1e1e2e;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      z-index: 1000;
+      transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      white-space: nowrap;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: #34c759; color: #34c759; }
+    .toast.error { border-color: var(--accent); color: #ff6b6b; }
+    .toast.info { border-color: var(--neon-cyan); color: var(--neon-cyan); }
+
+    /* ===== Race Select Card ===== */
+    .race-info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .race-field { display: flex; flex-direction: column; gap: 6px; }
+    .race-field-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .race-select-wrap {
+      position: relative;
+    }
+    .race-select-wrap select {
+      width: 100%;
+      padding: 10px 32px 10px 12px;
+      background: var(--input-bg);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 700;
+      font-family: inherit;
+      appearance: none;
+      -webkit-appearance: none;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      font-size: 16px; /* prevent iOS zoom */
+    }
+    .race-select-wrap select:focus {
+      border-color: var(--accent);
+    }
+    .race-select-wrap::after {
+      content: '▾';
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      pointer-events: none;
+      font-size: 14px;
+    }
+    .date-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--input-bg);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 700;
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      color-scheme: dark;
+    }
+    .date-input:focus { border-color: var(--accent); }
+
+    /* Race Number Buttons */
+    .race-num-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+    }
+    .race-num-btn {
+      padding: 10px 0;
+      background: var(--input-bg);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      color: var(--text-dim);
+      font-size: 14px;
+      font-weight: 700;
+      font-family: 'SF Mono', 'Menlo', monospace;
+      cursor: pointer;
+      transition: all 0.18s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .race-num-btn.active {
+      background: rgba(217,26,38,0.18);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 10px rgba(217,26,38,0.2);
+    }
+
+    /* Current race badge */
+    .race-badge-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: rgba(217,26,38,0.08);
+      border: 1px solid rgba(217,26,38,0.2);
+      border-radius: 10px;
+    }
+    .race-badge-row svg { width: 14px; height: 14px; color: var(--accent); flex-shrink: 0; }
+    .race-badge-text {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .race-badge-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-left: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent)">
+        <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+        <line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
+        <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
+      </svg>
+      <h1>BOAT RACE SNIPER</h1>
+    </div>
+    <div class="header-sub">大穴予想ツール</div>
+    <div class="header-line"></div>
+  </div>
+
+  <!-- Race Select Card -->
+  <div class="card">
+    <div class="section-header">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      <span>レース選択</span>
+    </div>
+
+    <div class="race-info-grid">
+      <div class="race-field">
+        <div class="race-field-label">競艇場</div>
+        <div class="race-select-wrap">
+          <select id="venueSelect" onchange="updateRaceBadge()">
+            <option value="">-- 選択 --</option>
+            <optgroup label="関東">
+              <option value="桐生">桐生（群馬）</option>
+              <option value="戸田">戸田（埼玉）</option>
+              <option value="江戸川">江戸川（東京）</option>
+              <option value="平和島">平和島（東京）</option>
+              <option value="多摩川">多摩川（東京）</option>
+            </optgroup>
+            <optgroup label="中部">
+              <option value="浜名湖">浜名湖（静岡）</option>
+              <option value="蒲郡">蒲郡（愛知）</option>
+              <option value="常滑">常滑（愛知）</option>
+              <option value="津">津（三重）</option>
+              <option value="三国">三国（福井）</option>
+            </optgroup>
+            <optgroup label="近畿">
+              <option value="びわこ">びわこ（滋賀）</option>
+              <option value="住之江">住之江（大阪）</option>
+              <option value="尼崎">尼崎（兵庫）</option>
+              <option value="鳴門">鳴門（徳島）</option>
+            </optgroup>
+            <optgroup label="中国・四国">
+              <option value="丸亀">丸亀（香川）</option>
+              <option value="児島">児島（岡山）</option>
+              <option value="宮島">宮島（広島）</option>
+              <option value="徳山">徳山（山口）</option>
+              <option value="下関">下関（山口）</option>
+            </optgroup>
+            <optgroup label="九州">
+              <option value="若松">若松（福岡）</option>
+              <option value="芦屋">芦屋（福岡）</option>
+              <option value="福岡">福岡（福岡）</option>
+              <option value="唐津">唐津（佐賀）</option>
+              <option value="大村">大村（長崎）</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+
+      <div class="race-field">
+        <div class="race-field-label">開催日</div>
+        <input type="date" class="date-input" id="raceDateInput" onchange="updateRaceBadge()">
+      </div>
+    </div>
+
+    <div class="race-field-label" style="margin-bottom:8px;">レース番号</div>
+    <div class="race-num-grid" id="raceNumGrid"></div>
+
+    <div class="race-badge-row" id="raceBadgeRow" style="display:none;">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      <span class="race-badge-text" id="raceBadgeText">--</span>
+      <span class="race-badge-sub" id="raceBadgeSub">--</span>
+    </div>
+
+    <button class="auto-load-btn" id="autoLoadBtn" onclick="fetchRaceData()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3"/>
+      </svg>
+      出走表データを自動取得
+    </button>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Weather Card -->
+  <div class="card">
+    <div class="section-header">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>
+      <span>天候・風速</span>
+    </div>
+
+    <div class="label">風向き</div>
+    <div class="wind-grid">
+      <button class="wind-btn active" data-wind="calm" onclick="selectWind(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
+        無風
+      </button>
+      <button class="wind-btn" data-wind="tail" onclick="selectWind(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+        追い風
+      </button>
+      <button class="wind-btn" data-wind="head" onclick="selectWind(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+        向かい風
+      </button>
+      <button class="wind-btn" data-wind="cross" onclick="selectWind(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="15 8 19 12 15 16"/><polyline points="9 8 5 12 9 16"/></svg>
+        横風
+      </button>
+    </div>
+
+    <div class="slider-header">
+      <span class="label" style="margin:0">風速</span>
+      <span class="slider-value speed-green" id="windValue">0m</span>
+    </div>
+    <input type="range" min="0" max="10" step="1" value="0" id="windSlider" oninput="updateWind()">
+    <div class="slider-labels"><span>0m</span><span>10m</span></div>
+  </div>
+
+  <!-- Racers Section -->
+  <div class="section-header" style="margin-bottom:12px; padding-left:4px;">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>
+    <span>選手データ</span>
+  </div>
+
+  <div id="racerList"></div>
+
+  <!-- Submit Button -->
+  <button class="submit-btn" id="submitBtn" onclick="handleSubmit()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+      <line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
+      <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
+    </svg>
+    大穴期待値を計算する
+  </button>
+
+  <!-- Result Area -->
+  <div class="result-area" id="resultArea">
+    <div class="result-card" id="resultCard">
+      <div class="result-title">SNIPER ANALYSIS</div>
+
+      <div class="result-main">
+        <div class="result-label">万舟（1万円超え）になる確率</div>
+        <div class="result-value" id="resultExpect">--</div>
+      </div>
+
+      <div class="result-divider"></div>
+
+      <div class="result-picks">
+        <div class="pick-row">
+          <span class="pick-label">本命狙い（3連単）</span>
+          <span class="pick-value hot" id="pick1">---</span>
+        </div>
+        <div class="pick-row">
+          <span class="pick-label">狙い目（3連単）</span>
+          <span class="pick-value warm" id="pick2">---</span>
+        </div>
+        <div class="pick-row">
+          <span class="pick-label">ワイド穴狙い</span>
+          <span class="pick-value cool" id="pick3">---</span>
+        </div>
+      </div>
+
+      <div class="result-divider"></div>
+
+      <div class="result-picks">
+        <div class="pick-row">
+          <span class="pick-label">荒れ指数</span>
+          <span class="pick-value" id="stormIndex" style="color:var(--neon-pink);">--</span>
+        </div>
+        <div class="pick-row">
+          <span class="pick-label">推奨買い目点数</span>
+          <span class="pick-value cool" id="pickCount">--</span>
+        </div>
+      </div>
+
+      <div class="result-note" id="resultNote"></div>
+    </div>
+  </div>
+
+  <script src="/model/sniper-model.js"></script>
+  <script>
+    // === Venue Code Map ===
+    const venueCodes = {
+      '桐生':'01','戸田':'02','江戸川':'03','平和島':'04','多摩川':'05',
+      '浜名湖':'06','蒲郡':'07','常滑':'08','津':'09','三国':'10',
+      'びわこ':'11','住之江':'12','尼崎':'13','鳴門':'14','丸亀':'15',
+      '児島':'16','宮島':'17','徳山':'18','下関':'19','若松':'20',
+      '芦屋':'21','福岡':'22','唐津':'23','大村':'24'
+    };
+
+    // === Toast ===
+    function showToast(msg, type = 'info', duration = 3000) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = `toast show ${type}`;
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => t.classList.remove('show'), duration);
+    }
+
+    // === Fetch Race Data via Vercel API (server-side, no CORS) ===
+    async function fetchRaceData() {
+      const venue = document.getElementById('venueSelect').value;
+      const date  = document.getElementById('raceDateInput').value;
+      if (!venue) { showToast('競艇場を選択してください', 'error'); return; }
+      if (!date)  { showToast('開催日を選択してください', 'error'); return; }
+
+      const btn      = document.getElementById('autoLoadBtn');
+      const origHtml = btn.innerHTML;
+      btn.innerHTML  = '<span class="loading-text">取得中...</span>';
+      btn.disabled   = true;
+      btn.className  = 'auto-load-btn';
+
+      const code    = venueCodes[venue];
+      const dateStr = date.replace(/-/g, '');
+
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 20000);
+        let res;
+        try {
+          res = await fetch(
+            `/api/racedata?hd=${dateStr}&jcd=${code}&rno=${selectedRace}`,
+            { signal: controller.signal }
+          );
+        } finally {
+          clearTimeout(timer);
+        }
+        const json = await res.json();
+
+        if (!res.ok || !json.ok) {
+          throw new Error(json.error || 'データ取得に失敗しました');
+        }
+
+        // フォームに反映
+        json.racers.forEach((r, idx) => {
+          const n = idx + 1;
+          if (r.cls) {
+            updateClass(n, r.cls);
+            const sel = document.querySelectorAll('.custom-select')[idx]?.querySelector('select');
+            if (sel) sel.value = r.cls;
+          }
+          if (r.motor) document.getElementById(`motor-${n}`).value = r.motor;
+          if (r.boat)  document.getElementById(`boat-${n}`).value  = r.boat;
+        });
+
+        showToast(`✓ ${venue} 第${selectedRace}R のデータを取得しました`, 'success', 4000);
+        btn.className = 'auto-load-btn success';
+        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> 取得完了`;
+        setTimeout(() => {
+          btn.className = 'auto-load-btn';
+          btn.innerHTML = origHtml;
+          btn.disabled  = false;
+        }, 4000);
+
+      } catch (err) {
+        showToast(err.message || 'データ取得エラー', 'error', 5000);
+        btn.className = 'auto-load-btn error';
+        btn.innerHTML = origHtml;
+        btn.disabled  = false;
+        setTimeout(() => btn.className = 'auto-load-btn', 4000);
+      }
+    }
+
+    // === Race Select ===
+    // Today's date as default
+    const _now = new Date();
+    const today = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
+    document.getElementById('raceDateInput').value = today;
+
+    // Generate race number buttons 1-12
+    const raceNumGrid = document.getElementById('raceNumGrid');
+    let selectedRace = 1;
+    for (let i = 1; i <= 12; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'race-num-btn' + (i === 1 ? ' active' : '');
+      btn.textContent = i;
+      btn.dataset.race = i;
+      btn.onclick = () => {
+        document.querySelectorAll('.race-num-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedRace = i;
+        updateRaceBadge();
+      };
+      raceNumGrid.appendChild(btn);
+    }
+
+    function updateRaceBadge() {
+      const venue = document.getElementById('venueSelect').value;
+      const date = document.getElementById('raceDateInput').value;
+      const row = document.getElementById('raceBadgeRow');
+      if (venue && date) {
+        const d = new Date(date);
+        const formatted = `${d.getMonth()+1}月${d.getDate()}日`;
+        document.getElementById('raceBadgeText').textContent = `${venue} 第${selectedRace}レース`;
+        document.getElementById('raceBadgeSub').textContent = formatted;
+        row.style.display = 'flex';
+      } else {
+        row.style.display = 'none';
+      }
+    }
+    updateRaceBadge();
+
+    // === Wind Direction ===
+    function selectWind(el) {
+      document.querySelectorAll('.wind-btn').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    // === Wind Speed ===
+    function updateWind() {
+      const val = document.getElementById('windSlider').value;
+      const el = document.getElementById('windValue');
+      el.textContent = val + 'm';
+      el.className = 'slider-value ' + (val <= 3 ? 'speed-green' : val <= 6 ? 'speed-yellow' : 'speed-red');
+    }
+
+    // === Class Helpers ===
+    function getClassColor(cls) {
+      return { A1: 'a1', A2: 'a2', B1: 'b1', B2: 'b2' }[cls] || 'b1';
+    }
+
+    const classStrength = { A1: 4, A2: 3, B1: 2, B2: 1 };
+
+    // === Generate Racer Cards ===
+    const boatClasses = ['A1', 'A2', 'B1', 'B2'];
+    const lanes = [
+      { num: 1, cls: 'lane-1' },
+      { num: 2, cls: 'lane-2' },
+      { num: 3, cls: 'lane-3' },
+      { num: 4, cls: 'lane-4' },
+      { num: 5, cls: 'lane-5' },
+      { num: 6, cls: 'lane-6' },
+    ];
+
+    const list = document.getElementById('racerList');
+    lanes.forEach(lane => {
+      const card = document.createElement('div');
+      card.className = 'racer-card';
+      card.innerHTML = `
+        <div class="lane-badge ${lane.cls}">${lane.num}</div>
+        <div class="racer-info">
+          <div class="racer-label">${lane.num}号艇</div>
+          <div class="racer-fields">
+            <div class="field-group">
+              <div class="field-label">階級</div>
+              <div class="custom-select">
+                <span class="class-dot b1" id="dot-${lane.num}"></span>
+                <span class="select-text" id="text-${lane.num}">B1</span>
+                <span class="select-arrow">&#9650;&#9660;</span>
+                <select onchange="updateClass(${lane.num}, this.value)">
+                  ${boatClasses.map(c => `<option value="${c}" ${c === 'B1' ? 'selected' : ''}>${c}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+            <div class="field-group">
+              <div class="field-label">モーター勝率</div>
+              <div class="motor-input-wrap">
+                <input type="text" inputmode="decimal" class="motor-input" placeholder="0.00" id="motor-${lane.num}" maxlength="6">
+                <span class="motor-unit">%</span>
+              </div>
+            </div>
+            <div class="field-group">
+              <div class="field-label">ボート勝率</div>
+              <div class="motor-input-wrap">
+                <input type="text" inputmode="decimal" class="motor-input" placeholder="0.00" id="boat-${lane.num}" maxlength="6">
+                <span class="motor-unit">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+
+    function updateClass(num, val) {
+      document.getElementById(`dot-${num}`).className = 'class-dot ' + getClassColor(val);
+      document.getElementById(`text-${num}`).textContent = val;
+    }
+
+    // === Prediction Logic（学習モデル）===
+    // model/weights.json は GitHub Actions が毎週学び直して更新する
+    let modelPromise = null;
+    function loadModel() {
+      if (!modelPromise) {
+        modelPromise = (window.SniperModel ? SniperModel.load('/model/') : Promise.reject(new Error('no model script')))
+          .catch(err => { console.warn('学習モデルを読めませんでした', err); modelPromise = null; return null; });
+      }
+      return modelPromise;
+    }
+    loadModel();
+
+    const circled = ['①','②','③','④','⑤','⑥'];
+    const pct = (p, d = 0) => (p * 100).toFixed(d) + '%';
+
+    function collectInput() {
+      const racers = [];
+      for (let i = 1; i <= 6; i++) {
+        racers.push({
+          lane: i,
+          cls: document.getElementById(`text-${i}`).textContent,
+          motor: parseFloat(document.getElementById(`motor-${i}`).value) || 0,
+          boat: parseFloat(document.getElementById(`boat-${i}`).value) || 0
+        });
+      }
+      return {
+        venue: document.getElementById('venueSelect').value,
+        raceNum: selectedRace,
+        raceDate: document.getElementById('raceDateInput').value,
+        windDir: document.querySelector('.wind-btn.active')?.dataset.wind || 'calm',
+        windSpeed: parseInt(document.getElementById('windSlider').value),
+        racers
+      };
+    }
+
+    // 3連単の確率から「2艇がどちらも3着以内」の確率（ワイド）を出す
+    function bestWide(ranked, favoriteLane) {
+      const pair = {};
+      ranked.forEach(({ combo, prob }) => {
+        const l = combo.split('-').map(Number);
+        for (let a = 0; a < 3; a++) for (let b = a + 1; b < 3; b++) {
+          const k = [l[a], l[b]].sort().join('=');
+          pair[k] = (pair[k] || 0) + prob;
+        }
+      });
+      return Object.entries(pair)
+        .filter(([k]) => !k.split('=').includes(String(favoriteLane)))
+        .sort((x, y) => y[1] - x[1])[0];
+    }
+
+    function predictWithModel(model, inp) {
+      const r = model.predict({
+        venue: venueCodes[inp.venue] || '00',
+        windSpeed: inp.windSpeed,
+        wave: 0,
+        boats: inp.racers.map(x => ({ cls: x.cls, motor2: x.motor || null, boat2: x.boat || null }))
+      });
+      const fav = r.winProbs.indexOf(Math.max(...r.winProbs)) + 1;
+      const wide = bestWide(r.ranked, fav);
+      const m = r.meta.metrics || {};
+      const st = m.strategy_test;
+      let note = r.shouldBet
+        ? '荒れる条件がそろってます。学習で一番回収率が良かった買い方の対象レースです。'
+        : '荒れにくいレースです。大穴を狙うなら見送り推奨。';
+      note += `\n1着確率: ` + r.winProbs.map((p, i) => `${circled[i]}${pct(p)}`).join(' ');
+      note += `\n学習: ${r.meta.nRaces.toLocaleString()}レース（${(r.meta.trainedAt || '').slice(0, 10)}更新）`;
+      if (st && st.races) note += `\n過去検証の回収率: ${pct(st.roi)}（${st.races}レース中${st.hits}的中）`;
+      return {
+        expect: pct(r.arare),
+        honmei: `${r.honmei[0].combo}`,
+        honmeiSub: pct(r.honmei[0].prob, 1),
+        ooana: r.picks.slice(0, 3).map(p => p.combo).join(' / ') + (r.picks.length > 3 ? ` 他${r.picks.length - 3}点` : ''),
+        wide: wide ? wide[0] : '---',
+        storm: Math.round(r.arare * 100) + '/100',
+        count: r.shouldBet ? `${r.picks.length}点` : '見送り推奨',
+        note
+      };
+    }
+
+    // 学習データがまだ無い時の簡易ロジック（ランダムは使わない）
+    function predictFallback(inp) {
+      const { racers, windDir, windSpeed } = inp;
+      let storm = windSpeed * 6;
+      if (windDir === 'head') storm += 15;
+      if (windDir === 'cross') storm += 20;
+      storm += { B2: 25, B1: 15, A2: 5 }[racers[0].cls] || 0;
+      for (let i = 3; i < 6; i++) {
+        if (racers[i].cls === 'A1') storm += 12;
+        if (racers[i].motor > 40) storm += 8;
+        if (racers[i].boat > 40) storm += 5;
+      }
+      if (racers[0].boat > 0 && racers[0].boat < 30) storm += 10;
+      storm = Math.min(99, Math.max(10, storm));
+      const s = racers.map(r => ({ ...r, power: classStrength[r.cls] * 10 + r.motor + (r.lane === 1 ? 12 : 0) }))
+        .sort((a, b) => b.power - a.power);
+      return {
+        expect: storm + '%',
+        honmei: `${s[0].lane}-${s[1].lane}-${s[2].lane}`,
+        honmeiSub: '',
+        ooana: `${s[5].lane}-${s[0].lane}-全`,
+        wide: `${s[5].lane}=${s[4].lane}`,
+        storm: storm + '/100',
+        count: storm > 60 ? '12〜18点' : storm > 40 ? '8〜12点' : '4〜8点',
+        note: '※ 学習モデルの準備中のため簡易計算です。'
+      };
+    }
+
+    async function handleSubmit() {
+      const btn = document.getElementById('submitBtn');
+      const resultArea = document.getElementById('resultArea');
+      const resultCard = document.getElementById('resultCard');
+      const origHtml = btn.innerHTML;
+      resultArea.classList.remove('show');
+      btn.innerHTML = '<span class="loading-text">ANALYZING...</span>';
+      btn.disabled = true;
+
+      const inp = collectInput();
+      let out;
+      try {
+        const model = await loadModel();
+        out = model ? predictWithModel(model, inp) : predictFallback(inp);
+      } catch (err) {
+        console.error(err);
+        out = predictFallback(inp);
+      }
+
+      if (inp.venue && inp.raceDate) {
+        const d = new Date(inp.raceDate);
+        document.querySelector('.result-title').textContent = `${inp.venue} 第${inp.raceNum}R ／ ${d.getMonth()+1}/${d.getDate()}`;
+      } else {
+        document.querySelector('.result-title').textContent = 'SNIPER ANALYSIS';
+      }
+      document.getElementById('resultExpect').textContent = out.expect;
+      document.getElementById('pick1').innerHTML = out.honmei + (out.honmeiSub ? ` <small>${out.honmeiSub}</small>` : '') + '<span class="pick-badge badge-danger">本命</span>';
+      document.getElementById('pick2').innerHTML = out.ooana + '<span class="pick-badge badge-warning">大穴</span>';
+      document.getElementById('pick3').innerHTML = out.wide + '<span class="pick-badge badge-info">穴</span>';
+      document.getElementById('stormIndex').textContent = out.storm;
+      document.getElementById('pickCount').textContent = out.count;
+      document.getElementById('resultNote').textContent = out.note;
+
+      resultArea.classList.add('show');
+      resultCard.parentElement.classList.add('scanning');
+      setTimeout(() => resultCard.parentElement.classList.remove('scanning'), 1600);
+      setTimeout(() => resultArea.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+      btn.innerHTML = origHtml;
+      btn.disabled = false;
+    }
+  </script>
+</body>
+</html>

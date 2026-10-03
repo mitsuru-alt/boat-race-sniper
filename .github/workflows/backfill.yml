@@ -55,4 +55,4 @@ jobs:
 
       - name: 保存
         run: |
-          bash pipeline/save.sh "data: 過去データ ${{ inputs.start }} 〜 ${{ inputs.end || '昨日' }}" data/ public/model/ reports/
+          bash pipeline/save.sh "data: 過去データ ${{ inputs.start }} 〜 ${{ inputs.end || '昨日' }}" data/ model/ reports/

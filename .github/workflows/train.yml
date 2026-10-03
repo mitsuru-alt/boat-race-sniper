@@ -32,4 +32,4 @@ jobs:
 
       - name: 保存
         run: |
-          bash pipeline/save.sh "model: $(TZ=Asia/Tokyo date +%Y-%m-%d) 再学習" public/model/ reports/
+          bash pipeline/save.sh "model: $(TZ=Asia/Tokyo date +%Y-%m-%d) 再学習" model/ reports/

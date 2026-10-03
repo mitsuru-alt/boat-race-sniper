@@ -3,8 +3,8 @@
     python pipeline/analyze.py
 
 入力 : data/entries/**/*.csv.gz
-出力 : public/model/weights.json   … アプリが読む学習済みの重み
-       public/model/racer_st.json  … 選手ごとの平均スタートタイミング
+出力 : model/weights.json   … アプリが読む学習済みの重み
+       model/racer_st.json  … 選手ごとの平均スタートタイミング
        reports/latest.md           … 日本語の成績レポート
        reports/history.csv         … 学習ごとの成績推移
 
@@ -32,7 +32,7 @@ from scipy.optimize import minimize
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data" / "entries"
-MODEL_DIR = ROOT / "public" / "model"
+MODEL_DIR = ROOT / "model"
 REPORT_DIR = ROOT / "reports"
 JST = timezone(timedelta(hours=9))
 
