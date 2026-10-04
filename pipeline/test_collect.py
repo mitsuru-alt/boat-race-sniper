@@ -123,6 +123,17 @@ def test_k_sections_karatsu_not_tsu():
     assert races[("23", 1)].wind_speed == 1.0
 
 
+
+def test_three_digit_boat_no_glued_to_motor_rate():
+    # 福岡・芦屋の実データ（ボート番号が3桁で、モーター2連率とくっついている）
+    e = parse_b_entry("1 3611岩崎芳美54徳島49A2 6.00 39.29 5.50 38.89 36 31.90154 36.11 155         12")
+    assert e["motor_no"] == 36 and e["motor_2"] == 31.90 and e["boat_no"] == 154 and e["boat_2"] == 36.11
+    e = parse_b_entry("5 4897深見亜由34愛知44B1 3.86 14.77 0.00  0.00  4 41.90157 35.58 663          5")
+    assert e["motor_no"] == 4 and e["boat_no"] == 157 and e["loc_win"] == 0.0
+    e = parse_b_entry("1 3303渡辺　豊59東京54B1 4.33 18.97 6.18 36.36 19 32.79124 31.18 442 224     10")
+    assert e["racer_no"] == 3303 and e["boat_no"] == 124 and e["boat_2"] == 31.18
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):
