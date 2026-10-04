@@ -1,0 +1,2 @@
+trained_at,n_races,top1_acc,arare_auc,strategy_roi,strategy_races
+2026-10-04T10:10:52+09:00,98406,0.5631,0.5779,0.9719779353821907,1269
