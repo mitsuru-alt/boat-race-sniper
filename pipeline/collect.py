@@ -107,17 +107,32 @@ def parse_b_entry(line: str) -> dict | None:
     }
 
 
+_SECTION_MARK = re.compile(r"^\s*(\d{2})([BK])(BGN|END)\s*$")
+
+
 def parse_b_text(text: str) -> dict[tuple[str, int, int], dict]:
-    """番組表テキスト全体 → {(場コード, R, 艇番): 選手データ}"""
+    """番組表テキスト全体 → {(場コード, R, 艇番): 選手データ}
+
+    場の区切りは公式ファイルの目印「24BBGN」〜「24BEND」（数字=場コード）で判定する。
+    場名の表記ゆれ（ひらがな表記・全角スペース）や「唐津」と「津」の取り違えを避けるため。
+    目印が無い古い形式だけ、見出しの場名で判定する。
+    """
     out: dict[tuple[str, int, int], dict] = {}
     venue: str | None = None
     race_no: int | None = None
+    has_marks = any(_SECTION_MARK.match(l) for l in text.splitlines())
     for raw in text.splitlines():
         line = raw.rstrip()
-        v = _venue_in(line)
-        if v:
-            venue, race_no = v, None
+        mk = _SECTION_MARK.match(line)
+        if mk:
+            venue = mk.group(1) if mk.group(3) == "BGN" and mk.group(1) in VENUE_CODES.values() else None
+            race_no = None
             continue
+        if not has_marks:
+            v = _venue_in(line)
+            if v:
+                venue, race_no = v, None
+                continue
         if venue is None:
             continue
         h = _B_RACE_HEAD.match(line)
@@ -133,19 +148,49 @@ def parse_b_text(text: str) -> dict[tuple[str, int, int], dict]:
 
 
 # ----------------------------------------------------------------------
-# 競走成績（K ファイル）は boatrace-lzh の PerformanceParser を利用
+# 競走成績（K ファイル）
+# 1レース分の解析は boatrace-lzh の PerformanceParser に任せ、
+# 場の区切りは目印「24KBGN」〜「24KEND」で自分で行う（ライブラリは場名で判定するため
+# 「唐津」が「津」として記録されてしまう）。
 # ----------------------------------------------------------------------
+
+def split_k_sections(text: str) -> dict[str, list[str]]:
+    sections: dict[str, list[str]] = {}
+    venue: str | None = None
+    for raw in text.splitlines():
+        mk = _SECTION_MARK.match(raw)
+        if mk and mk.group(2) == "K":
+            venue = mk.group(1) if mk.group(3) == "BGN" and mk.group(1) in VENUE_CODES.values() else None
+            if venue:
+                sections.setdefault(venue, [])
+            continue
+        if venue:
+            sections[venue].append(raw.strip())
+    return sections
+
 
 def parse_k_files(files: dict[str, str]):
     from boatrace_lzh import PerformanceParser
 
-    res = PerformanceParser().parse(files)
-    races = {(r.venue_code, r.race_number): r for r in res.races}
-    entries = {(e.venue_code, e.race_number, e.boat_number): e for e in res.entries}
-    trifecta = {}
-    for p in res.payouts:
-        if p.ticket_type == "sanrensho":
-            trifecta[(p.venue_code, p.race_number)] = p
+    parser = PerformanceParser()
+    races, entries, trifecta = {}, {}, {}
+    for text in files.values():
+        sections = split_k_sections(text)
+        if not sections:
+            continue
+        for venue, lines in sections.items():
+            race_date = parser._extract_date(lines)
+            for race_no, race_lines in parser._split_into_races(lines).items():
+                parsed = parser._parse_race(race_lines, venue, race_date, race_no)
+                if not parsed:
+                    continue
+                race, _racers, ents, pays = parsed
+                races[(venue, race_no)] = race
+                for e in ents:
+                    entries[(venue, race_no, e.boat_number)] = e
+                for p in pays:
+                    if p.ticket_type == "sanrensho":
+                        trifecta[(venue, race_no)] = p
     return races, entries, trifecta
 
 

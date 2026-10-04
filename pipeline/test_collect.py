@@ -61,6 +61,68 @@ def test_header_lines_ignored():
     assert parse_b_entry("-" * 70) is None
 
 
+# 実ファイルと同じ「場コード+BBGN」目印つき。場名がひらがな・唐津/津が並ぶケース
+SAMPLE_B_MARKED = """\
+STARTB
+22BBGN
+ボートレースふくおか   １０月　１日  福岡ルーキーシリーズ
+　１Ｒ  予選　　　　          Ｈ１８００ｍ  電話投票締切予定１５：００
+1 4440萩原知哉38東京55B1 4.30 23.23 4.13 12.50 51 28.57 75 31.25 665          8
+22BEND
+23BBGN
+ボートレース唐　津   １０月　１日  からつ杯
+　１Ｒ  一般　　　　          Ｈ１８００ｍ  電話投票締切予定１５：００
+1 4444桐生順平36埼玉52A1 7.85 59.42 8.10 63.64 34 38.26 50 32.73
+23BEND
+09BBGN
+ボートレース津   １０月　１日  津杯
+　２Ｒ  一般　　　　          Ｈ１８００ｍ  電話投票締切予定１５：００
+3 4099吉永則雄50大阪55B1 4.80 30.20 0.00  0.00 45 28.00 61 29.90 6 5
+09BEND
+FINALB
+"""
+
+K_SECTION = """\
+   第 3日          2024/10/ 1                             ボートレース{name}
+
+   [払戻金]       ３連単           ３連複           ２連単         ２連複
+           1R  2-1-3    2260    1-2-3     580    2-1     560    1-2     220
+
+   1R       予選　　　　                 H1800m  晴　  風  北西　 1m  波　  1cm
+  着 艇 登番 　選　手　名　　ﾓｰﾀｰ ﾎﾞｰﾄ 展示 進入 ｽﾀｰﾄﾀｲﾐﾝｸ ﾚｰｽﾀｲﾑ 差し　　　
+-------------------------------------------------------------------------------
+  01  2 4272 大　場　　広　孝 63   71  6.95   2    0.20     1.50.6
+  02  1 4440 萩　原　　知　哉 51   75  6.90   1    0.15     1.51.4
+  03  3 5264 登　　　みひ果 55   55  6.98   3    0.18     1.52.0
+  04  4 4005 瀬　川　　公　則 68   65  6.93   4    0.21     1.53.1
+  05  5 5003 来　田　　衣　織 43   69  6.97   5    0.22     1.54.0
+  06  6 3842 星　野　　太　郎 58   73  6.99   6    0.25     1.55.0
+
+        単勝     2          560
+        ３連単   2-1-3     2260  人気     5
+"""
+
+
+def test_b_section_marks():
+    m = parse_b_text(SAMPLE_B_MARKED)
+    assert ("22", 1, 1) in m and m[("22", 1, 1)]["racer_no"] == 4440   # ひらがな表記の福岡
+    assert ("23", 1, 1) in m and m[("23", 1, 1)]["racer_no"] == 4444   # 唐津が津にならない
+    assert ("09", 2, 3) in m
+    assert len(m) == 3
+
+
+def test_k_sections_karatsu_not_tsu():
+    from collect import parse_k_files
+    text = ("STARTK\n23KBGN\n唐　津［成績］\n" + K_SECTION.format(name="唐　津") + "23KEND\n"
+            "09KBGN\n津［成績］\n" + K_SECTION.format(name="津") + "09KEND\nFINALK\n")
+    races, entries, tri = parse_k_files({"k.txt": text})
+    assert ("23", 1) in races and ("09", 1) in races
+    assert len(entries) == 12
+    assert entries[("23", 1, 2)].result_position == 1 and entries[("23", 1, 2)].st_timing == 0.20
+    assert tri[("23", 1)].winning_combination == "2-1-3" and tri[("23", 1)].payout == 2260
+    assert races[("23", 1)].wind_speed == 1.0
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

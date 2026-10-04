@@ -16,6 +16,10 @@ on:
         description: "取得後にそのまま学習する"
         type: boolean
         default: true
+      force:
+        description: "取得済みの日も読み直す（解析を直した時用）"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -53,13 +57,15 @@ jobs:
           DEBUG_SAMPLE: "1"
           START: ${{ inputs.start }}
           END: ${{ inputs.end }}
+          FORCE: ${{ inputs.force }}
         run: |
+          SKIP="--skip-existing"; [ "$FORCE" = "true" ] && SKIP=""
           [ -z "$END" ] && END=$(TZ=Asia/Tokyo date -d yesterday +%F)
           cur="$START"
           while [[ ! "$cur" > "$END" ]]; do
             chunk_end=$(date -d "$cur +59 days" +%F)
             [[ "$chunk_end" > "$END" ]] && chunk_end="$END"
-            python pipeline/collect.py --start "$cur" --end "$chunk_end" --skip-existing --delay 1.0 || true
+            python pipeline/collect.py --start "$cur" --end "$chunk_end" $SKIP --delay 1.0 || true
             bash pipeline/save.sh "data: 過去データ $cur 〜 $chunk_end" data/
             cur=$(date -d "$chunk_end +1 day" +%F)
           done
