@@ -242,12 +242,33 @@ def write_day(day: date, rows: list[dict]) -> Path:
     return path
 
 
+_reported_b_venues: set[str] = set()
+
+
+def _report_unparsed_b_sections(text: str, b_map: dict, day: date) -> None:
+    """番組表で選手が1人も読めなかった場があれば、その部分を画面に出す（場ごとに1回）。"""
+    venues_ok = {k[0] for k in b_map}
+    venue, buf = None, []
+    for raw in text.splitlines() + ["99BBGN"]:
+        mk = _SECTION_MARK.match(raw)
+        if mk:
+            if venue and venue not in venues_ok and venue not in _reported_b_venues and buf:
+                _reported_b_venues.add(venue)
+                annotate("warning", f"番組表 場{venue} が読めない {day}\n" + "\n".join(buf[:40]))
+            venue = mk.group(1) if mk.group(3) == "BGN" else None
+            buf = []
+            continue
+        if venue:
+            buf.append(raw)
+
+
 def collect_day(dl, day: date) -> dict:
     b_files = dl.download(day, "schedule")
     k_files = dl.download(day, "performance")
     b_map: dict = {}
     for text in b_files.values():
         b_map.update(parse_b_text(text))
+        _report_unparsed_b_sections(text, b_map, day)
     k_races, k_entries, k_tri = parse_k_files(k_files) if k_files else ({}, {}, {})
 
     stats = {
