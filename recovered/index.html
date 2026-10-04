@@ -435,6 +435,7 @@
       font-size: 11px;
       color: var(--text-muted);
       line-height: 1.6;
+      white-space: pre-line;
     }
 
     /* ===== Loading animation ===== */
@@ -795,7 +796,7 @@
       <div class="result-title">SNIPER ANALYSIS</div>
 
       <div class="result-main">
-        <div class="result-label">大穴期待値</div>
+        <div class="result-label">万舟（1万円超え）になる確率</div>
         <div class="result-value" id="resultExpect">--</div>
       </div>
 
@@ -807,7 +808,7 @@
           <span class="pick-value hot" id="pick1">---</span>
         </div>
         <div class="pick-row">
-          <span class="pick-label">大穴狙い（3連単）</span>
+          <span class="pick-label">狙い目（3連単）</span>
           <span class="pick-value warm" id="pick2">---</span>
         </div>
         <div class="pick-row">
@@ -833,6 +834,7 @@
     </div>
   </div>
 
+  <script src="/model/sniper-model.js"></script>
   <script>
     // === Venue Code Map ===
     const venueCodes = {
@@ -918,7 +920,8 @@
 
     // === Race Select ===
     // Today's date as default
-    const today = new Date().toISOString().split('T')[0];
+    const _now = new Date();
+    const today = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
     document.getElementById('raceDateInput').value = today;
 
     // Generate race number buttons 1-12
@@ -1031,22 +1034,22 @@
       document.getElementById(`text-${num}`).textContent = val;
     }
 
-    // === Prediction Logic (dummy) ===
-    function handleSubmit() {
-      const btn = document.getElementById('submitBtn');
-      const resultArea = document.getElementById('resultArea');
-      const resultCard = document.getElementById('resultCard');
+    // === Prediction Logic（学習モデル）===
+    // model/weights.json は GitHub Actions が毎週学び直して更新する
+    let modelPromise = null;
+    function loadModel() {
+      if (!modelPromise) {
+        modelPromise = (window.SniperModel ? SniperModel.load('/model/') : Promise.reject(new Error('no model script')))
+          .catch(err => { console.warn('学習モデルを読めませんでした', err); modelPromise = null; return null; });
+      }
+      return modelPromise;
+    }
+    loadModel();
 
-      // Hide previous result
-      resultArea.classList.remove('show');
+    const circled = ['①','②','③','④','⑤','⑥'];
+    const pct = (p, d = 0) => (p * 100).toFixed(d) + '%';
 
-      // Collect data
-      const venue = document.getElementById('venueSelect').value;
-      const raceNum = selectedRace;
-      const raceDate = document.getElementById('raceDateInput').value;
-      const windDir = document.querySelector('.wind-btn.active')?.dataset.wind || 'calm';
-      const windSpeed = parseInt(document.getElementById('windSlider').value);
-
+    function collectInput() {
       const racers = [];
       for (let i = 1; i <= 6; i++) {
         racers.push({
@@ -1056,132 +1059,127 @@
           boat: parseFloat(document.getElementById(`boat-${i}`).value) || 0
         });
       }
+      return {
+        venue: document.getElementById('venueSelect').value,
+        raceNum: selectedRace,
+        raceDate: document.getElementById('raceDateInput').value,
+        windDir: document.querySelector('.wind-btn.active')?.dataset.wind || 'calm',
+        windSpeed: parseInt(document.getElementById('windSlider').value),
+        racers
+      };
+    }
 
-      // Show loading
+    // 3連単の確率から「2艇がどちらも3着以内」の確率（ワイド）を出す
+    function bestWide(ranked, favoriteLane) {
+      const pair = {};
+      ranked.forEach(({ combo, prob }) => {
+        const l = combo.split('-').map(Number);
+        for (let a = 0; a < 3; a++) for (let b = a + 1; b < 3; b++) {
+          const k = [l[a], l[b]].sort().join('=');
+          pair[k] = (pair[k] || 0) + prob;
+        }
+      });
+      return Object.entries(pair)
+        .filter(([k]) => !k.split('=').includes(String(favoriteLane)))
+        .sort((x, y) => y[1] - x[1])[0];
+    }
+
+    function predictWithModel(model, inp) {
+      const r = model.predict({
+        venue: venueCodes[inp.venue] || '00',
+        windSpeed: inp.windSpeed,
+        wave: 0,
+        boats: inp.racers.map(x => ({ cls: x.cls, motor2: x.motor || null, boat2: x.boat || null }))
+      });
+      const fav = r.winProbs.indexOf(Math.max(...r.winProbs)) + 1;
+      const wide = bestWide(r.ranked, fav);
+      const m = r.meta.metrics || {};
+      const st = m.strategy_test;
+      let note = r.shouldBet
+        ? '荒れる条件がそろってます。学習で一番回収率が良かった買い方の対象レースです。'
+        : '荒れにくいレースです。大穴を狙うなら見送り推奨。';
+      note += `\n1着確率: ` + r.winProbs.map((p, i) => `${circled[i]}${pct(p)}`).join(' ');
+      note += `\n学習: ${r.meta.nRaces.toLocaleString()}レース（${(r.meta.trainedAt || '').slice(0, 10)}更新）`;
+      if (st && st.races) note += `\n過去検証の回収率: ${pct(st.roi)}（${st.races}レース中${st.hits}的中）`;
+      return {
+        expect: pct(r.arare),
+        honmei: `${r.honmei[0].combo}`,
+        honmeiSub: pct(r.honmei[0].prob, 1),
+        ooana: r.picks.slice(0, 3).map(p => p.combo).join(' / ') + (r.picks.length > 3 ? ` 他${r.picks.length - 3}点` : ''),
+        wide: wide ? wide[0] : '---',
+        storm: Math.round(r.arare * 100) + '/100',
+        count: r.shouldBet ? `${r.picks.length}点` : '見送り推奨',
+        note
+      };
+    }
+
+    // 学習データがまだ無い時の簡易ロジック（ランダムは使わない）
+    function predictFallback(inp) {
+      const { racers, windDir, windSpeed } = inp;
+      let storm = windSpeed * 6;
+      if (windDir === 'head') storm += 15;
+      if (windDir === 'cross') storm += 20;
+      storm += { B2: 25, B1: 15, A2: 5 }[racers[0].cls] || 0;
+      for (let i = 3; i < 6; i++) {
+        if (racers[i].cls === 'A1') storm += 12;
+        if (racers[i].motor > 40) storm += 8;
+        if (racers[i].boat > 40) storm += 5;
+      }
+      if (racers[0].boat > 0 && racers[0].boat < 30) storm += 10;
+      storm = Math.min(99, Math.max(10, storm));
+      const s = racers.map(r => ({ ...r, power: classStrength[r.cls] * 10 + r.motor + (r.lane === 1 ? 12 : 0) }))
+        .sort((a, b) => b.power - a.power);
+      return {
+        expect: storm + '%',
+        honmei: `${s[0].lane}-${s[1].lane}-${s[2].lane}`,
+        honmeiSub: '',
+        ooana: `${s[5].lane}-${s[0].lane}-全`,
+        wide: `${s[5].lane}=${s[4].lane}`,
+        storm: storm + '/100',
+        count: storm > 60 ? '12〜18点' : storm > 40 ? '8〜12点' : '4〜8点',
+        note: '※ 学習モデルの準備中のため簡易計算です。'
+      };
+    }
+
+    async function handleSubmit() {
+      const btn = document.getElementById('submitBtn');
+      const resultArea = document.getElementById('resultArea');
+      const resultCard = document.getElementById('resultCard');
+      const origHtml = btn.innerHTML;
+      resultArea.classList.remove('show');
       btn.innerHTML = '<span class="loading-text">ANALYZING...</span>';
       btn.disabled = true;
 
-      setTimeout(() => {
-        // --- Dummy analysis ---
-        // 1号艇の強さ（インコース有利の原則）
-        const lane1Strength = classStrength[racers[0].cls] + (racers[0].motor / 20) + (racers[0].boat / 25);
+      const inp = collectInput();
+      let out;
+      try {
+        const model = await loadModel();
+        out = model ? predictWithModel(model, inp) : predictFallback(inp);
+      } catch (err) {
+        console.error(err);
+        out = predictFallback(inp);
+      }
 
-        // 荒れやすさ計算
-        let stormScore = 0;
+      if (inp.venue && inp.raceDate) {
+        const d = new Date(inp.raceDate);
+        document.querySelector('.result-title').textContent = `${inp.venue} 第${inp.raceNum}R ／ ${d.getMonth()+1}/${d.getDate()}`;
+      } else {
+        document.querySelector('.result-title').textContent = 'SNIPER ANALYSIS';
+      }
+      document.getElementById('resultExpect').textContent = out.expect;
+      document.getElementById('pick1').innerHTML = out.honmei + (out.honmeiSub ? ` <small>${out.honmeiSub}</small>` : '') + '<span class="pick-badge badge-danger">本命</span>';
+      document.getElementById('pick2').innerHTML = out.ooana + '<span class="pick-badge badge-warning">大穴</span>';
+      document.getElementById('pick3').innerHTML = out.wide + '<span class="pick-badge badge-info">穴</span>';
+      document.getElementById('stormIndex').textContent = out.storm;
+      document.getElementById('pickCount').textContent = out.count;
+      document.getElementById('resultNote').textContent = out.note;
 
-        // 風が強いほど荒れる
-        stormScore += windSpeed * 6;
-
-        // 向かい風・横風は荒れやすい
-        if (windDir === 'head') stormScore += 15;
-        if (windDir === 'cross') stormScore += 20;
-
-        // 1号艇が弱いほど荒れる
-        if (racers[0].cls === 'B2') stormScore += 25;
-        else if (racers[0].cls === 'B1') stormScore += 15;
-        else if (racers[0].cls === 'A2') stormScore += 5;
-
-        // 外枠にA1がいると荒れる
-        for (let i = 3; i < 6; i++) {
-          if (racers[i].cls === 'A1') stormScore += 12;
-        }
-
-        // モーター差
-        const motors = racers.map(r => r.motor).filter(m => m > 0);
-        if (motors.length >= 2) {
-          const maxMotor = Math.max(...motors);
-          const minMotor = Math.min(...motors);
-          if (maxMotor - minMotor > 15) stormScore += 10;
-        }
-
-        // 外枠のモーター・ボートが良いと荒れる
-        for (let i = 3; i < 6; i++) {
-          if (racers[i].motor > 40) stormScore += 8;
-          if (racers[i].boat > 40) stormScore += 5;
-        }
-
-        // 1号艇のボートが悪いと荒れる
-        if (racers[0].boat > 0 && racers[0].boat < 30) stormScore += 10;
-
-        stormScore = Math.min(99, Math.max(10, stormScore));
-
-        // 大穴期待値
-        const expectation = Math.min(95, Math.max(15, stormScore + Math.floor(Math.random() * 10) - 5));
-
-        // 買い目生成
-        const sortedByPower = racers
-          .map(r => ({ ...r, power: classStrength[r.cls] * 10 + r.motor }))
-          .sort((a, b) => b.power - a.power);
-
-        const strongest = sortedByPower[0].lane;
-        const second = sortedByPower[1].lane;
-        const dark1 = sortedByPower[sortedByPower.length - 1].lane;
-        const dark2 = sortedByPower[sortedByPower.length - 2].lane;
-        const mid = sortedByPower[2].lane;
-
-        // 本命: 強い順
-        const honmei = `${strongest}-${second}-${mid}`;
-        // 大穴: ダークホースを軸に
-        const ooana = `${dark1}-${strongest}-全`;
-        // ワイド穴
-        const wide = `${dark1}=${dark2}`;
-
-        // 推奨点数
-        const pickCount = stormScore > 60 ? '12〜18点' : stormScore > 40 ? '8〜12点' : '4〜8点';
-
-        // コメント生成
-        let note = '';
-        if (stormScore >= 70) {
-          note = '波乱含み！外枠の逆転に注目。手広く買い目を組むのが吉。';
-        } else if (stormScore >= 45) {
-          note = 'やや荒れ模様。1号艇軸に穴目も押さえたい展開。';
-        } else {
-          note = '堅い展開予想。本命で手堅く狙うか、あえての穴狙いか。';
-        }
-
-        if (windSpeed >= 5) {
-          note += `\n風速${windSpeed}mの影響でターン時のまくり展開に警戒。`;
-        }
-
-        // Display results
-        // Reflect race info in result title
-        if (venue) {
-          const d = new Date(raceDate);
-          const formatted = `${d.getMonth()+1}/${d.getDate()}`;
-          document.querySelector('.result-title').textContent
-            = `${venue} 第${raceNum}R ／ ${formatted}`;
-        } else {
-          document.querySelector('.result-title').textContent = 'SNIPER ANALYSIS';
-        }
-        document.getElementById('resultExpect').textContent = expectation + '%';
-        document.getElementById('pick1').innerHTML = honmei + '<span class="pick-badge badge-danger">本命</span>';
-        document.getElementById('pick2').innerHTML = ooana + '<span class="pick-badge badge-warning">大穴</span>';
-        document.getElementById('pick3').innerHTML = wide + '<span class="pick-badge badge-info">穴</span>';
-        document.getElementById('stormIndex').textContent = stormScore + '/100';
-        document.getElementById('pickCount').textContent = pickCount;
-        document.getElementById('resultNote').textContent = note;
-
-        // Show result with animation
-        resultArea.classList.add('show');
-        resultCard.parentElement.classList.add('scanning');
-        setTimeout(() => resultCard.parentElement.classList.remove('scanning'), 1600);
-
-        // Scroll to result
-        setTimeout(() => {
-          resultArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 200);
-
-        // Reset button
-        btn.innerHTML = `
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
-            <line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
-            <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
-          </svg>
-          大穴期待値を計算する
-        `;
-        btn.disabled = false;
-      }, 1500);
+      resultArea.classList.add('show');
+      resultCard.parentElement.classList.add('scanning');
+      setTimeout(() => resultCard.parentElement.classList.remove('scanning'), 1600);
+      setTimeout(() => resultArea.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+      btn.innerHTML = origHtml;
+      btn.disabled = false;
     }
   </script>
 </body>
